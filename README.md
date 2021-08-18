@@ -4,7 +4,9 @@ Specifically, I followed Zoufal et al. (https://arxiv.org/abs/1904.00043) and st
 
 # version - conda users
 For restoring the project code, please clone the git repo and then enter in terminal:
+'''
   conda env create -f environment.yml
+'''
 in order to create the same environement.
 
 # version - non-conda users
