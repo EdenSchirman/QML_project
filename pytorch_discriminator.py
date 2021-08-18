@@ -20,6 +20,7 @@ import numpy as np
 from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.utils import QuantumInstance
 from qiskit_machine_learning.algorithms.distribution_learners.qgan.discriminative_network import DiscriminativeNetwork
+from qiskit.aqua.components.optimizers import ADAM
 
 try:
     import torch
@@ -73,8 +74,10 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
                                              self._inclide_bias) # DiscriminatorNet implements the network architecture.
         # optimizer: torch.optim.Optimizer or None, Optimizer initialized w.r.t
         # discriminator network parameters.
-        self._optimizer = optim.Adam(self._discriminator.parameters(), lr=1e-5, amsgrad=True)
-
+        # self._optimizer = optim.Adam(self._discriminator.parameters(), lr=1e-5, amsgrad=True)
+        #TODO to continue with the transition to ADAM. maxiter & self.parmeters difference
+        self._optimizer = ADAM(self._discriminator.parameters(),tol=1e-6, lr=1e-3, beta_1=0.7, beta_2=0.99,
+                               noise_factor=1e-4,eps=1e-6, amsgrad=True)
         self._ret = {}  # type: Dict[str, Any]
 
     def set_seed(self, seed: int):

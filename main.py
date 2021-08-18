@@ -1,6 +1,7 @@
 # genereic libraries
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.core.fromnumeric import repeat
 
 # generic qiskit libraries
 from qiskit import QuantumRegister, QuantumCircuit, BasicAer
@@ -9,12 +10,11 @@ from qiskit.aqua import QuantumInstance, aqua_globals
 from qiskit.visualization import *
 
 # QGAN functions
-from qiskit.aqua.algorithms import QGAN
+from qgan import QGAN
+from pytorch_discriminator import PyTorchDiscriminator
 from qiskit.aqua.components.neural_networks import NumPyDiscriminator
-from qiskit_machine_learning.algorithms.distribution_learners.qgan import PyTorchDiscriminator
-# from qiskit_machine_learning.algorithms.distribution_learners.qgan import pytorch_discriminator
 
-
+#local functions
 def plot_losses(qgan):
   # epochs = qgan.epochs
   plt.figure()
@@ -35,9 +35,10 @@ def plot_re(qgan):
   plt.xlabel('epochs')
   plt.grid()
   #plt.show()
-  filename = 'Figures/RE, [{},{},{},{}], bias={}.png'.format(qgan.n_in,
-    qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias)
-  plt.savefig(filename)
+  if qgan.to_save:
+    filename = "Figures/RE, [{},{},{},{}],bias={}, N_epochs={}.png".format(qgan.n_in,
+    qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias, qgan._num_epochs)
+    plt.savefig(filename)
 
 def plot_pdf_cdf(qgan, real_data, bound):
 
@@ -81,12 +82,13 @@ def plot_pdf_cdf(qgan, real_data, bound):
   ax[1].set_title('CDF')
   ax[1].grid()
 
-  fig.suptitle("Network parameters:[{},{},{},{}], bias={} ".format(qgan.n_in,
-    qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias))
+  fig.suptitle("Network parameters:[{},{},{},{}], bias={}, N_epochs={} ".format(qgan.n_in,
+    qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias, qgan._num_epochs))
   #plt.show()
-  filename = "Figures/PDF_CDF, [{},{},{},{}], bias={}.png".format(qgan.n_in,
-  qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias)
-  plt.savefig(filename)
+  if qgan.to_save:
+    filename = "Figures/PDF_CDF, [{},{},{},{}], bias={}, N_epochs={}.png".format(qgan.n_in,
+    qgan.n_hidden0, qgan.n_hidden1, qgan.n_out, qgan.include_bias, qgan._num_epochs)
+    plt.savefig(filename)
 
 def plot_training_data(real_data, bound):
   fig, ax = plt.subplots(1,2)
@@ -108,14 +110,37 @@ def plot_training_data(real_data, bound):
   np.set_printoptions(precision=2)
   print(probabilities)
 
+# parameters difference between 2 and 3 qubits
+num_qubits = [2]
 
+if num_qubits[0]==2:
+  # training parameters
+  N=1000
+  num_epochs = 10 
+  batch_size = 100
+
+  init_params = [3., 1., 0.6, 1.6] # the parameters are the initial rotation angles around the Y axis.
+  entangler_map = [[0, 1]]
+  repetitions = 1 # reps - how many entanglement layers 
+
+elif num_qubits[0]==3:
+  # training parameters
+  num_epochs = 10 
+  batch_size = 100
+  N=2000
+
+  init_params = None
+  entnagler_map= None
+  repetitions=2
+
+
+# local variables
 to_plot = True
 seed = 71
 np.random.seed = seed
 aqua_globals.random_seed = seed
 
 # log-normal distrbuition parameters
-N = 1000
 mu = 1
 sigma = 1
 
@@ -123,49 +148,32 @@ sigma = 1
 real_data = np.random.lognormal(mean=mu, sigma=sigma, size=N)
 
 # quantum parameters
-num_qubits = [2] 
-max_num_qubits = np.max(num_qubits)
-max_num_qubits = max_num_qubits.flatten()
-max_state = 2**max_num_qubits[0] -1 
-bound = np.array([0., max_state]) 
-num_registers = len(num_qubits)
-
-# training parameters
-num_epochs = 10 
-batch_size = 100
+max_state = 2**num_qubits[0] -1 
+bounds = np.array([0, max_state]) 
+num_registers = 1
 
 # understanding the training data
 # plot_training_data(real_data, bound)
 
 # initialize QGAN
 # https://qiskit.org/documentation/stubs/qiskit.aqua.algorithms.QGAN.html
-qgan = QGAN(real_data, bound, num_qubits, batch_size, num_epochs, snapshot_dir=None)
+qgan = QGAN(real_data, bounds, num_qubits, batch_size, num_epochs, snapshot_dir=None)
 qgan.seed = 1
 
 # set quantum instance to run quantum generator
 quantum_instance = QuantumInstance(backend=BasicAer.get_backend('statevector_simulator'),
                                    seed_transpiler=seed, seed_simulator=seed)
 
-# which qubits would be entangled to which
-entangler_map = [[0, 1]]
 
 # Set an initial state for the generator circuit
 init_dist = UniformDistribution(sum(num_qubits))
-
-# Set the ansatz circuit - the part of the circuit that transforms psi_in into the desired distribuition
-# reps - how many entanglement layers 
-var_form = TwoLocal(int(np.sum(num_qubits)), 'ry', 'cz',entanglement=entangler_map, reps=1) #
-
-# the parameters are the initial rotation angles around the Y axis.
-init_params = [3., 1., 0.6, 1.6]
-# init_params = np.random.rand(var_form.num_parameters_settable) * 2 * np.pi
+var_form = TwoLocal(int(np.sum(num_qubits)), 'ry', 'cz', reps=repetitions, entanglement=entangler_map) #
 
 # Set generator circuit by adding the initial distribution infront of the ansatz
 g_circuit = var_form.compose(init_dist, front=True)
-print('The paramatrized circuit: \n',g_circuit)
 
 # Set quantum generator
-qgan.set_generator(generator_circuit=g_circuit, generator_init_params=init_params)
+qgan.set_generator(generator_circuit=g_circuit, generator_init_params=init_params )
 
 # The parameters have an order issue that following is a temp. workaround
 qgan._generator._free_parameters = sorted(g_circuit.parameters, key=lambda p: p.name)
@@ -174,24 +182,34 @@ qgan._generator._free_parameters = sorted(g_circuit.parameters, key=lambda p: p.
 # discriminator = NumPyDiscriminator(len(num_qubits))
 qgan.n_in = 1
 qgan.n_out = 1
-qgan.n_hidden0 = 512
-qgan.n_hidden1 = 256
-qgan.include_bias = False
+qgan.n_hidden0 = 50
+qgan.n_hidden1 = 20
+qgan.include_bias = True
 
-
-discrminator = PyTorchDiscriminator(qgan.n_in, qgan.n_out, qgan.n_hidden0, qgan.n_hidden1, qgan.include_bias)
-qgan.set_discriminator(discrminator)
+discriminator = PyTorchDiscriminator(qgan.n_in, qgan.n_out, qgan.n_hidden0, qgan.n_hidden1, qgan.include_bias)
+# discriminator = NumPyDiscriminator(len(num_qubits))
+qgan.set_discriminator(discriminator)
 
 # Run qGAN
+qgan.debug = True
+qgan.to_save = False
 result = qgan.run(quantum_instance)
-print(result)
+# print(result)
 
 # analyzing the results
 qgan.epochs = np.arange(num_epochs)
+for i,key in enumerate(result.keys()):
+  if key=='params_d':
+    continue
+  print(key,':' ,result[key],'\n')
 
 #plots
 if to_plot:
   # plot_losses(qgan)
   plot_re(qgan) # The losses are not good measures for evaluating GAN. RE is exactly what we re looking to minimize !
-  plot_pdf_cdf(qgan, real_data, bound)
+  plot_pdf_cdf(qgan, real_data, bounds)
+  plt.show()
+
+
+
 
