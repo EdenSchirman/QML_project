@@ -20,7 +20,7 @@ import numpy as np
 from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.utils import QuantumInstance
 from qiskit_machine_learning.algorithms.distribution_learners.qgan.discriminative_network import DiscriminativeNetwork
-from qiskit.aqua.components.optimizers import ADAM
+# from qiskit.aqua.components.optimizers import ADAM
 
 try:
     import torch
@@ -31,17 +31,19 @@ try:
 except ImportError:
     _HAS_TORCH = False
 
+def initialize_param(dict, param_string):
+    if param_string in dict.keys():
+        param = dict[param_string]
+    else:
+        param = None
+    return param
 
 class PyTorchDiscriminator(DiscriminativeNetwork):
     """
     Discriminator based on PyTorch
     """
 
-    def __init__(self, n_features: int = 1,
-                    n_out: int = 1,
-                    n_hidden0: int=50,
-                    n_hidden1: int = 20,
-                    include_bias: bool = False) -> None:
+    def __init__(self, network_params) -> None:
         """
         Args:
             n_features: Dimension of input data vector.
@@ -58,26 +60,26 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
                 pip_install="pip install 'qiskit-meachine-learning[torch]'",
             )
 
-        self._n_features = n_features
-        self._n_out = n_out
-        self._n_hidden0 = n_hidden0
-        self._n_hidden1 = n_hidden1
-        self._inclide_bias = include_bias
         # discriminator_net: torch.nn.Module or None, Discriminator network.
         # pylint: disable=import-outside-toplevel
-        from qiskit_machine_learning.algorithms.distribution_learners.qgan._pytorch_discriminator_net import DiscriminatorNet
+        from _pytorch_discriminator_net import DiscriminatorNet
 
-        self._discriminator = DiscriminatorNet(self._n_features,
-                                             self._n_out,
-                                             self._n_hidden0,
-                                             self._n_hidden1,
-                                             self._inclide_bias) # DiscriminatorNet implements the network architecture.
+        # extract network_params
+        n_hidden0 = initialize_param(network_params, 'n_hidden0')
+        n_hidden1 = initialize_param(network_params, 'n_hidden1')
+        include_bias = initialize_param(network_params, 'include_bias')
+
+        self._discriminator = DiscriminatorNet(n_hidden0,
+                                                n_hidden1,
+                                                include_bias) # DiscriminatorNet implements the network architecture.
         # optimizer: torch.optim.Optimizer or None, Optimizer initialized w.r.t
         # discriminator network parameters.
-        # self._optimizer = optim.Adam(self._discriminator.parameters(), lr=1e-5, amsgrad=True)
-        #TODO to continue with the transition to ADAM. maxiter & self.parmeters difference
-        self._optimizer = ADAM(self._discriminator.parameters(),tol=1e-6, lr=1e-3, beta_1=0.7, beta_2=0.99,
-                               noise_factor=1e-4,eps=1e-6, amsgrad=True)
+        discriminator_parameters = self._discriminator.parameters()
+        learning_rate = network_params['lr']
+        is_amsgrad = network_params['is_amsgrad']
+
+        self._optimizer = optim.Adam(discriminator_parameters, lr=learning_rate, amsgrad=is_amsgrad)
+        # self._optimizer = optim.Adam(discriminator_parameters, lr=1e-4, amsgrad=True)
         self._ret = {}  # type: Dict[str, Any]
 
     def set_seed(self, seed: int):
@@ -228,7 +230,7 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         generated_batch = cast(Sequence, data)[1]
         generated_prob = cast(Sequence, weights)[1]
 
-        real_batch = np.reshape(real_batch, (len(real_batch), self._n_features))
+        real_batch = np.reshape(real_batch, (len(real_batch), 1))
         real_batch = torch.tensor(real_batch, dtype=torch.float32)
         real_batch = Variable(real_batch)
         real_prob = np.reshape(real_prob, (len(real_prob), 1))
@@ -242,7 +244,7 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         error_real.backward()
 
         # Train on Generated Data
-        generated_batch = np.reshape(generated_batch, (len(generated_batch), self._n_features))
+        generated_batch = np.reshape(generated_batch, (len(generated_batch), 1))
         generated_prob = np.reshape(generated_prob, (len(generated_prob), 1))
         generated_prob = torch.tensor(generated_prob, dtype=torch.float32)
         prediction_fake = self.get_label(generated_batch)

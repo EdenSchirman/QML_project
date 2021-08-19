@@ -28,7 +28,7 @@ from qiskit.aqua import QuantumInstance, AquaError, aqua_globals
 from qiskit.aqua.algorithms import QuantumAlgorithm
 from qiskit.aqua.components.neural_networks.discriminative_network import DiscriminativeNetwork
 from qiskit.aqua.components.neural_networks.generative_network import GenerativeNetwork
-from qiskit.aqua.components.neural_networks.quantum_generator import QuantumGenerator
+from quantum_generator import QuantumGenerator
 from qiskit.aqua.components.neural_networks.numpy_discriminator import NumPyDiscriminator
 from qiskit.aqua.components.optimizers import Optimizer
 from qiskit.aqua.components.uncertainty_models import UnivariateVariationalDistribution
