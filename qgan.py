@@ -329,7 +329,9 @@ class QGAN(QuantumAlgorithm):
 
                 if self.debug:
                     curr_g_params = ret_g['params']
-                    print("current G params {}".format(curr_g_params))
+                    with np.printoptions(precision=4):
+                        print("current G params {}".format(np.array(curr_g_params)))
+                        print("generated probability {}".format(np.array(generated_prob)))
                     curr_batch = index/self._batch_size
                     N_batches = np.floor(np.max(self._data.shape)/self._batch_size)
                     N_epochs = self._num_epochs

@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.core.fromnumeric import repeat
+import time
 
 # generic qiskit libraries
 from qiskit import QuantumRegister, QuantumCircuit, BasicAer
@@ -17,28 +18,34 @@ from qiskit.aqua.components.neural_networks import NumPyDiscriminator
 #local functions
 def plot_losses(qgan):
   # epochs = qgan.epochs
+  common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
+    qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,
+     qgan.network_params['include_bias'], qgan._num_epochs)
   plt.figure()
-  plt.title("Progress in the loss function")
+  plt.title("Loss" + common_str)
   plt.plot(qgan.epochs, qgan.g_loss, label='Generator loss function', color='mediumvioletred', linewidth=2)
   plt.plot(qgan.epochs, qgan.d_loss, label='Discriminator loss function', color='rebeccapurple', linewidth=2)
   plt.grid()
   plt.legend(loc='best')
   plt.xlabel('epochs')
   plt.ylabel('loss')
+  if qgan.to_save:
+    filename = 'Figures/Loss/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
+    plt.savefig(filename)
   #plt.show()
 
 def plot_re(qgan):
-  common_str = "[{},{},{},{}],bias={}, N_epochs={}.png".format(1,
-    qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1, qgan.network_params['include_bias'], qgan._num_epochs)
+  common_str = "[{},{},{},{}], N_epochs={}".format(1,
+    qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,qgan._num_epochs)
   
   plt.figure()
-  plt.title("Relative Entropy. Network parameters" + common_str)
+  plt.title("RE. " + common_str +"min epoch={}".format(np.argmin(qgan.rel_entr)))
   plt.plot(qgan.epochs, qgan.rel_entr, color='mediumblue', lw=4, ls=':')
   plt.xlabel('epochs')
   plt.grid()
   #plt.show()
   if qgan.to_save:
-    filename = 'Figures/RE, ' + common_str + '.png'
+    filename = 'Figures/RE/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
     plt.savefig(filename)
 
 def plot_pdf_cdf(qgan, real_data, bound):
@@ -83,13 +90,14 @@ def plot_pdf_cdf(qgan, real_data, bound):
   ax[1].set_title('CDF')
   ax[1].grid()
 
-  common_str = "[{},{},{},{}],bias={}, N_epochs={}.png".format(1,
-  qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1, qgan.network_params['include_bias'], qgan._num_epochs)
+  common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
+  qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'],
+   1, qgan.network_params['include_bias'], qgan._num_epochs)
 
   fig.suptitle("Network parameters" + common_str)
   #plt.show()
   if qgan.to_save:
-    filename = "Figures/PDF_CDF, " + common_str + ".png"
+    filename = "Figures/PDF_CDF/, " + common_str + '_' + time.strftime("%H_%M_%S", time.localtime()) + ".png"
     plt.savefig(filename)
 
 def plot_training_data(real_data, bound):
@@ -127,15 +135,15 @@ def initialize_default_params(network_params):
 
   return network_params
 
-def main():
+def main(network_params: dict={}):
   # parameters difference between 2 and 3 qubits
-  num_qubits = [2]
+  num_qubits = [3]
 
   if num_qubits[0]==2:
     # training parameters
     N=1000
     num_epochs = 10 
-    batch_size = 100
+    batch_size = 552 #500
 
     init_params = [3., 1., 0.6, 1.6] # the parameters are the initial rotation angles around the Y axis.
     entangler_map = [[0, 1]]
@@ -143,12 +151,12 @@ def main():
 
   elif num_qubits[0]==3:
     # training parameters
-    num_epochs = 10 
-    batch_size = 100
-    N=2000
+    num_epochs = 500 
+    batch_size = 1000
+    N=5000
 
     init_params = None
-    entnagler_map= None
+    entangler_map= None
     repetitions=1
 
   # local variables
@@ -197,7 +205,6 @@ def main():
 
   # Set classical discriminator neural network
   # discriminator = NumPyDiscriminator(len(num_qubits))
-  network_params = {}
   network_params = initialize_default_params(network_params)
 
   discriminator = PyTorchDiscriminator(network_params)
@@ -205,7 +212,7 @@ def main():
   qgan.set_discriminator(discriminator)
 
   # Run qGAN
-  qgan.debug = False
+  qgan.debug = True
   qgan.to_save = True
   result = qgan.run(quantum_instance)
   # print(result)
@@ -214,20 +221,23 @@ def main():
   qgan.epochs = np.arange(num_epochs)
   qgan.network_params = network_params
   qgan.num_samples = N
-  for i,key in enumerate(result.keys()):
-    if key=='params_d':
-      continue
-    print(key,':' ,result[key],'\n')
-
+  # for i,key in enumerate(result.keys()):
+  #   if key=='params_d':
+  #     continue
+  #   print(key,':' ,result[key])
+  
+  
   #plots
   if to_plot:
-    # plot_losses(qgan)
+    plot_losses(qgan)
     plot_re(qgan) # The losses are not good measures for evaluating GAN. RE is exactly what we re looking to minimize !
     plot_pdf_cdf(qgan, real_data, bounds)
-    plt.show()
+    
+  return qgan.rel_entr
 
 if __name__ =="__main__":
   main()
+  plt.show()
 
 
 
