@@ -60,25 +60,25 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
         # supports only 1 dimension:
         n_features = 1
         n_out = 1
-        self.todo_dropouts = dropouts
+        self.todo_dropouts = dropouts and not(conv_net)
+        self.conv_net = conv_net
 
-        if not conv_net:
-            self.hidden0 = nn.Sequential(
-                nn.Linear(n_features, n_hidden0,bias=include_bias),
-                nn.LeakyReLU(0.2),
-            )
-
+        self.hidden0 = nn.Sequential(
+            nn.Linear(n_features, n_hidden0,bias=include_bias),
+            nn.LeakyReLU(0.2))
+            
+        if not self.conv_net:
             self.hidden1 = nn.Sequential(
                 nn.Linear(n_hidden0, n_hidden1, bias=include_bias),
-                nn.LeakyReLU(0.2),
-            )
-            self.out = nn.Sequential(nn.Linear(n_hidden1, n_out, bias=include_bias), nn.Sigmoid())
-        
+                nn.LeakyReLU(0.2))             
         else:
-            #TODO add conv option
-            pass
+            self.hidden1 = nn.Sequential(
+                nn.Conv1d(n_hidden0, n_hidden1,kernel_size=5, bias=include_bias),
+                nn.LeakyReLU(0.2)) 
+        
+        self.out = nn.Sequential(nn.Linear(n_hidden1, n_out, bias=include_bias), nn.Sigmoid())
 
-        if dropouts:
+        if self.todo_dropouts:
             self.dropout = nn.Dropout()
 
     def forward(self, x):  # pylint: disable=arguments-differ
@@ -93,6 +93,8 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
         x = self.hidden0(x)
         if self.todo_dropouts:
             x = self.dropout(x)
+        if self.conv_net:
+            x = x.unsqueeze(dim=2)
         x = self.hidden1(x)
         if self.todo_dropouts:
             x = self.dropout(x)

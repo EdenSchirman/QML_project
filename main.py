@@ -99,6 +99,7 @@ def plot_pdf_cdf(qgan, real_data, bound):
 
   ax[0].plot(generator_samples, qgan_prob,'-o',linewidth=4, label='QGAN')
   ax[0].plot(generator_samples, classical_prob,'-o',linewidth=4, label='Classical')
+  ax[0].plot(generator_samples, qgan._generator_init_prob,'-o',linewidth=2, label='QGAN initial')
 
   ax[0].legend(loc='best')
   ax[0].set_title('PDF')
@@ -106,7 +107,7 @@ def plot_pdf_cdf(qgan, real_data, bound):
 
   #comparing to training - CDF
   ax[1].plot(generator_samples, qgan_cdf,'-o',linewidth=4, label='QGAN')
-  ax[1].plot(generator_samples, classical_cdf,'-o',linewidth=4, label='Classical')
+  ax[1].plot(generator_samples, classical_cdf,'-o',linewidth=2, label='Classical')
 
   ax[1].legend(loc='best')
   ax[1].set_title('CDF')
@@ -159,13 +160,22 @@ def initialize_default_params(network_params):
     network_params['include_bias'] = True
   if 'dropouts' not in network_params.keys():
     network_params['dropouts'] = False
+  if 'conv_net' not in network_params.keys():
+    network_params['conv_net'] = False
+  if 'seed' not in network_params.keys():
+    network_params['seed'] = 71
 
 
   return network_params
 
 def main(network_params: dict={}):
+  network_params = initialize_default_params(network_params)
   # parameters difference between 2 and 3 qubits
   num_qubits = [3]
+  to_plot = True
+  seed = network_params['seed']
+  np.random.seed(seed)
+  aqua_globals.random_seed = seed
 
   if num_qubits[0]==2:
     # training parameters
@@ -186,15 +196,11 @@ def main(network_params: dict={}):
     if 'params_g' in network_params.keys():
       init_params = network_params['params_g']
     else:
-      init_params = None
+      # because the QuantumGenerator initializaton takes the parameters close to zero, they might get stuck on a local minimum
+      init_params = 2*np.pi*np.random.rand(2**num_qubits[0]) *2e-2
+      init_params = init_params.flatten()
     entangler_map= None
     repetitions=1
-
-  # local variables
-  to_plot = True
-  seed = 71
-  np.random.seed = seed
-  aqua_globals.random_seed = seed
 
   # log-normal distrbuition parameters
   mu = 1
@@ -234,12 +240,7 @@ def main(network_params: dict={}):
   # The parameters have an order issue that following is a temp. workaround
   qgan._generator._free_parameters = sorted(g_circuit.parameters, key=lambda p: p.name)
 
-  # Set classical discriminator neural network
-  # discriminator = NumPyDiscriminator(len(num_qubits))
-  network_params = initialize_default_params(network_params)
-
   discriminator = PyTorchDiscriminator(network_params)
-  # discriminator = NumPyDiscriminator(len(num_qubits))
   qgan.set_discriminator(discriminator)
 
   # Run qGAN

@@ -315,6 +315,8 @@ class QGAN(QuantumAlgorithm):
                 index += self._batch_size
                 generated_batch, generated_prob = self._generator.get_output(self._quantum_instance,
                                                                              shots=self._batch_size)
+                if index ==self._batch_size and e == 0:
+                    self._generator_init_prob = generated_prob
 
                 # 1. Train Discriminator
                 ret_d = self._discriminator.train([real_batch, generated_batch],

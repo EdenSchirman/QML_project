@@ -63,11 +63,13 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         n_hidden1 = network_params['n_hidden1']
         include_bias = network_params['include_bias']
         dropouts = network_params['dropouts']
+        conv_net = network_params['conv_net']
 
         self._discriminator = DiscriminatorNet(n_hidden0,
                                                 n_hidden1,
                                                 include_bias,
-                                                dropouts) # DiscriminatorNet implements the network architecture.
+                                                dropouts,
+                                                conv_net) # DiscriminatorNet implements the network architecture.
         # optimizer: torch.optim.Optimizer or None, Optimizer initialized w.r.t
         # discriminator network parameters.
         discriminator_parameters = self._discriminator.parameters()

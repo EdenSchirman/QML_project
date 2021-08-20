@@ -5,10 +5,12 @@ import numpy as np
 n2avg = 5
 num_not_converged = 0
 min_re_vec = []
-network_params= {'n_hidden0':512, 'n_hidden1': 256, 'droputs': True}
+network_params= {'n_hidden0':512, 'n_hidden1': 256, 'conv_net':True, 'droputs': False}
+seed = [767, 3, 13, 94, 123]
 
 # running main
 for i in range(n2avg):
+   network_params['seed']=seed[i]
    re_vec, _ = main(network_params)  
    if re_vec[0] + 0.03 < re_vec[-1]:
     num_not_converged+=1
