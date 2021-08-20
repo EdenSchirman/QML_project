@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.core.fromnumeric import repeat
 import time
+import os
 
 # generic qiskit libraries
 from qiskit import QuantumRegister, QuantumCircuit, BasicAer
@@ -16,11 +17,25 @@ from pytorch_discriminator import PyTorchDiscriminator
 from qiskit.aqua.components.neural_networks import NumPyDiscriminator
 
 #local functions
-def plot_losses(qgan):
-  # epochs = qgan.epochs
+def get_common_str(qgan):
+  new_directory_name = 'Figures/'+time.strftime("%d_%H", time.localtime())
+  if not os.path.exists(new_directory_name):
+      os.mkdir(new_directory_name)
   common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
     qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,
      qgan.network_params['include_bias'], qgan._num_epochs)
+    
+  return new_directory_name, common_str
+
+def plot_losses(qgan):
+  # epochs = qgan.epochs
+  dir_name, common_str = get_common_str(qgan)
+  dir_name = dir_name+'/Loss'
+  if not os.path.exists(dir_name):
+    os.mkdir(dir_name)
+  # common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
+  #   qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,
+  #    qgan.network_params['include_bias'], qgan._num_epochs)
   plt.figure()
   plt.title("Loss" + common_str)
   plt.plot(qgan.epochs, qgan.g_loss, label='Generator loss function', color='mediumvioletred', linewidth=2)
@@ -30,13 +45,18 @@ def plot_losses(qgan):
   plt.xlabel('epochs')
   plt.ylabel('loss')
   if qgan.to_save:
-    filename = 'Figures/Loss/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
+    # filename = 'Figures/Loss/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
+    filename = dir_name +'/' +common_str +'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
     plt.savefig(filename)
   #plt.show()
 
 def plot_re(qgan):
-  common_str = "[{},{},{},{}], N_epochs={}".format(1,
-    qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,qgan._num_epochs)
+  dir_name, common_str = get_common_str(qgan)
+  dir_name = dir_name+'/RE'
+  if not os.path.exists(dir_name):
+    os.mkdir(dir_name)
+  # common_str = "[{},{},{},{}], N_epochs={}".format(1,
+  #   qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,qgan._num_epochs)
   
   plt.figure()
   plt.title("RE. " + common_str +"min epoch={}".format(np.argmin(qgan.rel_entr)))
@@ -45,7 +65,9 @@ def plot_re(qgan):
   plt.grid()
   #plt.show()
   if qgan.to_save:
-    filename = 'Figures/RE/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
+    # filename = 'Figures/RE/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
+    filename = dir_name+'/' + common_str +'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
+
     plt.savefig(filename)
 
 def plot_pdf_cdf(qgan, real_data, bound):
@@ -90,6 +112,10 @@ def plot_pdf_cdf(qgan, real_data, bound):
   ax[1].set_title('CDF')
   ax[1].grid()
 
+  dir_name, common_str = get_common_str(qgan)
+  dir_name = dir_name+'/CDF_PDF'
+  if not os.path.exists(dir_name):
+    os.mkdir(dir_name)
   common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
   qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'],
    1, qgan.network_params['include_bias'], qgan._num_epochs)
@@ -97,7 +123,7 @@ def plot_pdf_cdf(qgan, real_data, bound):
   fig.suptitle("Network parameters" + common_str)
   #plt.show()
   if qgan.to_save:
-    filename = "Figures/PDF_CDF/, " + common_str + '_' + time.strftime("%H_%M_%S", time.localtime()) + ".png"
+    filename = dir_name+'/' + common_str+'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
     plt.savefig(filename)
 
 def plot_training_data(real_data, bound):
@@ -131,6 +157,8 @@ def initialize_default_params(network_params):
     network_params['n_hidden1'] = int(20)
   if 'include_bias' not in network_params.keys():
     network_params['include_bias'] = True
+  if 'dropouts' not in network_params.keys():
+    network_params['dropouts'] = False
 
 
   return network_params
@@ -143,7 +171,7 @@ def main(network_params: dict={}):
     # training parameters
     N=1000
     num_epochs = 10 
-    batch_size = 552 #500
+    batch_size = 500 #500
 
     init_params = [3., 1., 0.6, 1.6] # the parameters are the initial rotation angles around the Y axis.
     entangler_map = [[0, 1]]
@@ -155,7 +183,10 @@ def main(network_params: dict={}):
     batch_size = 1000
     N=5000
 
-    init_params = None
+    if 'params_g' in network_params.keys():
+      init_params = network_params['params_g']
+    else:
+      init_params = None
     entangler_map= None
     repetitions=1
 
@@ -221,6 +252,7 @@ def main(network_params: dict={}):
   qgan.epochs = np.arange(num_epochs)
   qgan.network_params = network_params
   qgan.num_samples = N
+  params_g = result['params_g']
   # for i,key in enumerate(result.keys()):
   #   if key=='params_d':
   #     continue
@@ -233,7 +265,7 @@ def main(network_params: dict={}):
     plot_re(qgan) # The losses are not good measures for evaluating GAN. RE is exactly what we re looking to minimize !
     plot_pdf_cdf(qgan, real_data, bounds)
     
-  return qgan.rel_entr
+  return qgan.rel_entr, params_g
 
 if __name__ =="__main__":
   main()

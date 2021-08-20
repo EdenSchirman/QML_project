@@ -337,6 +337,12 @@ class QGAN(QuantumAlgorithm):
                     N_epochs = self._num_epochs
                     print("Finished batch {}/{} in epoch {}/{}".format(int(curr_batch), int(N_batches), e, N_epochs))
 
+            # change to evaluation mode
+            ret_d = self._discriminator.evaluate([real_batch, generated_batch],
+                                                  [np.ones(len(real_batch)) / len(real_batch),
+                                                   generated_prob])
+            d_loss_min = ret_d['loss']
+
             self._d_loss.append(np.around(float(d_loss_min), 4))
             self._g_loss.append(np.around(g_loss_min, 4))
 

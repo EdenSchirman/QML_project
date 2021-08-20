@@ -46,7 +46,9 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
 
     def __init__(self, n_hidden0: int=50,
                     n_hidden1: int = 20,
-                    include_bias: bool = False) -> None:
+                    include_bias: bool = False,
+                    dropouts: bool = False,
+                    conv_net: bool = False) -> None:
         """
         Initialize the discriminator network.
 
@@ -54,29 +56,30 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
             n_features: Dimension of input data samples.
             n_out: n out
         """
+        super().__init__()
         # supports only 1 dimension:
         n_features = 1
         n_out = 1
+        self.todo_dropouts = dropouts
 
-        # if n_hidden0 == None:
-        #     n_hidden0 = 50
-        # if n_hidden1 == None:
-        #     n_hidden1 = 20
-        # if include_bias == None:
-        #     include_bias = True
+        if not conv_net:
+            self.hidden0 = nn.Sequential(
+                nn.Linear(n_features, n_hidden0,bias=include_bias),
+                nn.LeakyReLU(0.2),
+            )
 
-        super().__init__()
+            self.hidden1 = nn.Sequential(
+                nn.Linear(n_hidden0, n_hidden1, bias=include_bias),
+                nn.LeakyReLU(0.2),
+            )
+            self.out = nn.Sequential(nn.Linear(n_hidden1, n_out, bias=include_bias), nn.Sigmoid())
+        
+        else:
+            #TODO add conv option
+            pass
 
-        self.hidden0 = nn.Sequential(
-            nn.Linear(n_features, n_hidden0,bias=include_bias),
-            nn.LeakyReLU(0.2),
-        )
-
-        self.hidden1 = nn.Sequential(
-            nn.Linear(n_hidden0, n_hidden1, bias=include_bias),
-            nn.LeakyReLU(0.2),
-        )
-        self.out = nn.Sequential(nn.Linear(n_hidden1, n_out, bias=include_bias), nn.Sigmoid())
+        if dropouts:
+            self.dropout = nn.Dropout()
 
     def forward(self, x):  # pylint: disable=arguments-differ
         """
@@ -88,7 +91,11 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
             torch.Tensor: Discriminator output, i.e. data label.
         """
         x = self.hidden0(x)
+        if self.todo_dropouts:
+            x = self.dropout(x)
         x = self.hidden1(x)
+        if self.todo_dropouts:
+            x = self.dropout(x)
         x = self.out(x)
 
         return x

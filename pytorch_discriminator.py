@@ -31,12 +31,6 @@ try:
 except ImportError:
     _HAS_TORCH = False
 
-def initialize_param(dict, param_string):
-    if param_string in dict.keys():
-        param = dict[param_string]
-    else:
-        param = None
-    return param
 
 class PyTorchDiscriminator(DiscriminativeNetwork):
     """
@@ -65,13 +59,15 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         from _pytorch_discriminator_net import DiscriminatorNet
 
         # extract network_params
-        n_hidden0 = initialize_param(network_params, 'n_hidden0')
-        n_hidden1 = initialize_param(network_params, 'n_hidden1')
-        include_bias = initialize_param(network_params, 'include_bias')
+        n_hidden0 = network_params['n_hidden0']
+        n_hidden1 = network_params['n_hidden1']
+        include_bias = network_params['include_bias']
+        dropouts = network_params['dropouts']
 
         self._discriminator = DiscriminatorNet(n_hidden0,
                                                 n_hidden1,
-                                                include_bias) # DiscriminatorNet implements the network architecture.
+                                                include_bias,
+                                                dropouts) # DiscriminatorNet implements the network architecture.
         # optimizer: torch.optim.Optimizer or None, Optimizer initialized w.r.t
         # discriminator network parameters.
         discriminator_parameters = self._discriminator.parameters()
@@ -224,6 +220,7 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         # pylint: disable=E1101
         # pylint: disable=E1102
         # Reset gradients
+        self.discriminator_net = self.discriminator_net.train()
         self._optimizer.zero_grad()
         real_batch = cast(Sequence, data)[0]
         real_prob = cast(Sequence, weights)[0]
@@ -261,6 +258,84 @@ class PyTorchDiscriminator(DiscriminativeNetwork):
         # pylint: enable=E1102
         # Update weights with gradients
         self._optimizer.step()
+
+        # Return error and predictions for real and fake inputs
+        loss_ret = 0.5 * (error_real + error_fake)
+        self._ret["loss"] = loss_ret.detach().numpy()
+        params = []
+
+        for param in self._discriminator.parameters():
+            params.append(param.data.detach().numpy())
+        self._ret["params"] = params
+
+        return self._ret
+
+    def evaluate(
+        self,
+        data: Iterable,
+        weights: Iterable,
+        penalty: bool = False,
+        quantum_instance: Optional[QuantumInstance] = None,
+        shots: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Evaluates the current parameters
+
+        Args:
+            data: Data batch.
+            weights: Data sample weights.
+            penalty: Indicate whether or not penalty function
+               is applied to the loss function. Ignored if no penalty function defined.
+            quantum_instance (QuantumInstance): used to run Quantum network.
+               Ignored for a classical network.
+            shots: Number of shots for hardware or qasm execution.
+                Ignored for classical network
+
+        Returns:
+            dict: with discriminator loss and updated parameters.data, weights, penalty=True,
+              quantum_instance=None, shots=None) -> Dict[str, Any]:
+        """
+        # pylint: disable=E1101
+        # pylint: disable=E1102
+        # Reset gradients
+        self.discriminator_net = self.discriminator_net.eval()
+        # self._optimizer.zero_grad()
+        real_batch = cast(Sequence, data)[0]
+        real_prob = cast(Sequence, weights)[0]
+        generated_batch = cast(Sequence, data)[1]
+        generated_prob = cast(Sequence, weights)[1]
+
+        real_batch = np.reshape(real_batch, (len(real_batch), 1))
+        real_batch = torch.tensor(real_batch, dtype=torch.float32)
+        real_batch = Variable(real_batch)
+        real_prob = np.reshape(real_prob, (len(real_prob), 1))
+        real_prob = torch.tensor(real_prob, dtype=torch.float32)
+
+        # Train on Real Data
+        prediction_real = self.get_label(real_batch)
+
+        # Calculate error and back propagate
+        error_real = self.loss(prediction_real, torch.ones(len(prediction_real), 1), real_prob)
+        # error_real.backward()
+
+        # Train on Generated Data
+        generated_batch = np.reshape(generated_batch, (len(generated_batch), 1))
+        generated_prob = np.reshape(generated_prob, (len(generated_prob), 1))
+        generated_prob = torch.tensor(generated_prob, dtype=torch.float32)
+        prediction_fake = self.get_label(generated_batch)
+
+        # Calculate error and back propagate
+        error_fake = self.loss(
+            prediction_fake, torch.zeros(len(prediction_fake), 1), generated_prob
+        )
+        # error_fake.backward()
+
+        # if penalty:
+        #     self.gradient_penalty(real_batch).backward()
+        # # pylint: enable=E1101
+        # # pylint: enable=E1102
+        # # Update weights with gradients
+        # self._optimizer.step()
 
         # Return error and predictions for real and fake inputs
         loss_ret = 0.5 * (error_real + error_fake)
