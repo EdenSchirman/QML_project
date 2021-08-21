@@ -19,7 +19,7 @@ from qiskit.aqua.components.neural_networks import NumPyDiscriminator
 #local functions
 def get_common_str(qgan):
   params = qgan.network_params
-  test_str = 'K={},3rd_layer={},dropouts={},n_hidden0={},n_hidden1={},N_epochs={}'.format(params['K'], params['third_layer'], params['dropouts'], params['n_hidden0'], params['n_hidden1'], qgan._num_epochs)
+  test_str = 'P={},K={},3rd_layer={},dropouts={},n_hidden0={},n_hidden1={},N_epochs={}'.format(params['distribution'],params['K'], params['third_layer'], params['dropouts'], params['n_hidden0'], params['n_hidden1'], qgan._num_epochs)
   new_directory_name = 'Figures/'+ test_str
   if not os.path.exists(new_directory_name):
       os.mkdir(new_directory_name)
@@ -161,7 +161,10 @@ def initialize_default_params(network_params):
   if 'third_layer' not in network_params.keys():
     network_params['third_layer']= False
   if 'K' not in network_params.keys():
-    network_params['K']= 2
+    network_params['K']= 1
+  if 'distribution' not in network_params.keys():
+    network_params['distribution']= 'triangular' # 'triangular', 'log-normal' 
+  
 
   return network_params
 
@@ -186,7 +189,7 @@ def main(network_params: dict={}):
     
   elif num_qubits[0]==3:
     # training parameters
-    num_epochs = 500  
+    num_epochs = 700 
     batch_size = 1000
     N=5000
 
@@ -202,13 +205,19 @@ def main(network_params: dict={}):
   mu = 1
   sigma = 1
 
-  # extracting training data
-  real_data = np.random.lognormal(mean=mu, sigma=sigma, size=N)
-
-  # quantum parameters
+    # quantum parameters
   max_state = 2**num_qubits[0] -1 
   bounds = np.array([0, max_state]) 
   num_registers = 1
+
+  # extracting training data
+  if network_params['distribution'] =='log-normal':
+    real_data = np.random.lognormal(mean=mu, sigma=sigma, size=N)
+  elif network_params['distribution'] =='triangular':
+    real_data = np.random.triangular(left=0, mode= (max_state+1)/2, right=max_state, size=N)
+
+
+
 
   # understanding the training data
   # plot_training_data(real_data, bound)

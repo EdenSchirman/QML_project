@@ -5,7 +5,7 @@ import numpy as np
 # running one configuration of main
 def run_one_config_of_main(network_params):
    # parameters
-   n2avg = 5 
+   n2avg = 5  
    num_not_converged = 0
    min_re_vec = []
    seed = [767, 3, 13, 94, 123]
@@ -30,15 +30,25 @@ def run_one_config_of_main(network_params):
 k_vec = [1,2]
 bool_vec = [False, True]
 network_params= {}
+distribution_str = ['log-normal', 'triangular']
 
 for _,K in enumerate(k_vec):
    for _,dropouts in enumerate(bool_vec):
       for _,third_layer in enumerate(bool_vec):
+         for _,distribution in enumerate(distribution_str):
 
-         network_params['K'] = K
-         network_params['third_layer'] = third_layer
-         network_params['dropouts'] = dropouts
+            network_params['K'] = K
+            network_params['third_layer'] = third_layer
+            network_params['dropouts'] = dropouts
+            network_params['distribution'] = distribution
 
-         run_one_config_of_main(network_params)
+            run_one_config_of_main(network_params)
+
+
+''' 
+TODO:
+
+- save the configutarion of the best epoch ! and to plot it together with the pdf !!!!
+'''
 
 
