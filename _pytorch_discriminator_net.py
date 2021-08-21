@@ -44,11 +44,12 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
     Discriminator
     """
 
-    def __init__(self, n_hidden0: int=50,
-                    n_hidden1: int = 20,
+    def __init__(self, n_hidden0: int=512,
+                    n_hidden1: int = 256,
                     include_bias: bool = False,
                     dropouts: bool = False,
-                    conv_net: bool = False) -> None:
+                    conv_net: bool = False,
+                    third_layer: bool = False) -> None:
         """
         Initialize the discriminator network.
 
@@ -62,16 +63,30 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
         n_out = 1
         self.todo_dropouts = dropouts and not(conv_net)
         self.conv_net = conv_net
+        self.third_layer = third_layer
 
-        self.hidden0 = nn.Sequential(
-            nn.Linear(n_features, n_hidden0,bias=include_bias),
+        if self.third_layer:
+            self.hidden_neg1 = nn.Sequential(
+            nn.Linear(n_features, n_hidden1,bias=include_bias),
             nn.LeakyReLU(0.2))
+
+            self.hidden0 = nn.Sequential(
+            nn.Linear(n_hidden1, n_hidden0,bias=include_bias),
+            nn.LeakyReLU(0.2))
+
+            
+        else:
+            self.hidden0 = nn.Sequential(
+                nn.Linear(n_features, n_hidden0,bias=include_bias),
+                nn.LeakyReLU(0.2))
             
         if not self.conv_net:
             self.hidden1 = nn.Sequential(
                 nn.Linear(n_hidden0, n_hidden1, bias=include_bias),
                 nn.LeakyReLU(0.2))             
         else:
+            #TODO currently this option does not work !
+            raise Exception('Convolution layer is not supported yet.')
             self.hidden1 = nn.Sequential(
                 nn.Conv1d(n_hidden0, n_hidden1,kernel_size=5, bias=include_bias),
                 nn.LeakyReLU(0.2)) 
@@ -90,6 +105,10 @@ class DiscriminatorNet(torch.nn.Module):  # pylint: disable=abstract-method
         Returns:
             torch.Tensor: Discriminator output, i.e. data label.
         """
+        if self.third_layer:
+            x = self.hidden_neg1(x)
+        if self.todo_dropouts:
+            x = self.dropout(x)
         x = self.hidden0(x)
         if self.todo_dropouts:
             x = self.dropout(x)

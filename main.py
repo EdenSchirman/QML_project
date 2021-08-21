@@ -18,26 +18,24 @@ from qiskit.aqua.components.neural_networks import NumPyDiscriminator
 
 #local functions
 def get_common_str(qgan):
-  new_directory_name = 'Figures/'+time.strftime("%d_%H", time.localtime())
+  params = qgan.network_params
+  test_str = 'K={},3rd_layer={},dropouts={},n_hidden0={},n_hidden1={},N_epochs={}'.format(params['K'], params['third_layer'], params['dropouts'], params['n_hidden0'], params['n_hidden1'], qgan._num_epochs)
+  new_directory_name = 'Figures/'+ test_str
   if not os.path.exists(new_directory_name):
       os.mkdir(new_directory_name)
-  common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
-    qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,
-     qgan.network_params['include_bias'], qgan._num_epochs)
+
     
-  return new_directory_name, common_str
+  return new_directory_name 
 
 def plot_losses(qgan):
-  # epochs = qgan.epochs
-  dir_name, common_str = get_common_str(qgan)
+
+  dir_name = get_common_str(qgan)
   dir_name = dir_name+'/Loss'
   if not os.path.exists(dir_name):
     os.mkdir(dir_name)
-  # common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
-  #   qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,
-  #    qgan.network_params['include_bias'], qgan._num_epochs)
+
   plt.figure()
-  plt.title("Loss" + common_str)
+  plt.title("Loss" )
   plt.plot(qgan.epochs, qgan.g_loss, label='Generator loss function', color='mediumvioletred', linewidth=2)
   plt.plot(qgan.epochs, qgan.d_loss, label='Discriminator loss function', color='rebeccapurple', linewidth=2)
   plt.grid()
@@ -45,30 +43,27 @@ def plot_losses(qgan):
   plt.xlabel('epochs')
   plt.ylabel('loss')
   if qgan.to_save:
-    # filename = 'Figures/Loss/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
-    filename = dir_name +'/' +common_str +'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
+    filename = dir_name +'/' +'_t=_'+ time.strftime("%H_%M_%S",time.localtime())+'.png'
     plt.savefig(filename)
   #plt.show()
 
 def plot_re(qgan):
-  dir_name, common_str = get_common_str(qgan)
+  dir_name = get_common_str(qgan)
   dir_name = dir_name+'/RE'
   if not os.path.exists(dir_name):
     os.mkdir(dir_name)
-  # common_str = "[{},{},{},{}], N_epochs={}".format(1,
-  #   qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'], 1,qgan._num_epochs)
   
   plt.figure()
-  plt.title("RE. " + common_str +"min epoch={}".format(np.argmin(qgan.rel_entr)))
+  plt.title("Minimum: RE({})={}, RE({})={}".format(np.argmin(qgan.rel_entr),np.min(qgan.rel_entr),(len(qgan.rel_entr)-1), qgan.rel_entr[-1]))
   plt.plot(qgan.epochs, qgan.rel_entr, color='mediumblue', lw=4, ls=':')
   plt.xlabel('epochs')
   plt.grid()
   #plt.show()
   if qgan.to_save:
-    # filename = 'Figures/RE/' + common_str +'-'+time.strftime("%H_%M_%S", time.localtime())+'.png'
-    filename = dir_name+'/' + common_str +'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
-
+    filename = dir_name+'/' +'_t=_'+ time.strftime("%H_%M_%S",time.localtime())+'.png'
     plt.savefig(filename)
+    np_filename = dir_name+'/RE_vec' +'_t=_'+ time.strftime("%H_%M_%S",time.localtime())+'.npy'
+    np.save(np_filename,qgan.rel_entr)
 
 def plot_pdf_cdf(qgan, real_data, bound):
 
@@ -95,7 +90,8 @@ def plot_pdf_cdf(qgan, real_data, bound):
     
 
   # comparing to training data -PDF
-  fig, ax = plt.subplots(1,2)
+  _, ax = plt.subplots(1,2)
+
 
   ax[0].plot(generator_samples, qgan_prob,'-o',linewidth=4, label='QGAN')
   ax[0].plot(generator_samples, classical_prob,'-o',linewidth=4, label='Classical')
@@ -113,18 +109,16 @@ def plot_pdf_cdf(qgan, real_data, bound):
   ax[1].set_title('CDF')
   ax[1].grid()
 
-  dir_name, common_str = get_common_str(qgan)
+  # dir_name, common_str = get_common_str(qgan
+  dir_name = get_common_str(qgan)
   dir_name = dir_name+'/CDF_PDF'
   if not os.path.exists(dir_name):
     os.mkdir(dir_name)
-  common_str = "[{},{},{},{}],bias={}, N_epochs={}".format(1,
-  qgan.network_params['n_hidden0'], qgan.network_params['n_hidden1'],
-   1, qgan.network_params['include_bias'], qgan._num_epochs)
 
-  fig.suptitle("Network parameters" + common_str)
+  #fig.suptitle("Network parameters" + common_str)
   #plt.show()
   if qgan.to_save:
-    filename = dir_name+'/' + common_str+'_t=_'+ time.strftime("%M_%S",time.localtime())+'.png'
+    filename = dir_name+'/' + '_t=_'+ time.strftime("%H_%M_%S",time.localtime())+'.png'
     plt.savefig(filename)
 
 def plot_training_data(real_data, bound):
@@ -153,9 +147,9 @@ def initialize_default_params(network_params):
   if 'is_amsgrad' not in network_params.keys():
     network_params['is_amsgrad'] = True
   if 'n_hidden0' not in network_params.keys():
-    network_params['n_hidden0'] = int(50)
+    network_params['n_hidden0'] = int(512)
   if 'n_hidden1' not in network_params.keys():
-    network_params['n_hidden1'] = int(20)
+    network_params['n_hidden1'] = int(256)
   if 'include_bias' not in network_params.keys():
     network_params['include_bias'] = True
   if 'dropouts' not in network_params.keys():
@@ -164,7 +158,10 @@ def initialize_default_params(network_params):
     network_params['conv_net'] = False
   if 'seed' not in network_params.keys():
     network_params['seed'] = 71
-
+  if 'third_layer' not in network_params.keys():
+    network_params['third_layer']= False
+  if 'K' not in network_params.keys():
+    network_params['K']= 2
 
   return network_params
 
@@ -174,6 +171,7 @@ def main(network_params: dict={}):
   num_qubits = [3]
   to_plot = True
   seed = network_params['seed']
+  K = network_params['K'] # reps - how many entanglement layers 
   np.random.seed(seed)
   aqua_globals.random_seed = seed
 
@@ -185,11 +183,10 @@ def main(network_params: dict={}):
 
     init_params = [3., 1., 0.6, 1.6] # the parameters are the initial rotation angles around the Y axis.
     entangler_map = [[0, 1]]
-    repetitions = 1 # reps - how many entanglement layers 
-
+    
   elif num_qubits[0]==3:
     # training parameters
-    num_epochs = 500 
+    num_epochs = 500  
     batch_size = 1000
     N=5000
 
@@ -197,10 +194,9 @@ def main(network_params: dict={}):
       init_params = network_params['params_g']
     else:
       # because the QuantumGenerator initializaton takes the parameters close to zero, they might get stuck on a local minimum
-      init_params = 2*np.pi*np.random.rand(2**num_qubits[0]) *2e-2
+      init_params = 2*np.pi*np.random.rand((K+1)*num_qubits[0]) *2e-2
       init_params = init_params.flatten()
-    entangler_map= None
-    repetitions=1
+    entangler_map= 'full'
 
   # log-normal distrbuition parameters
   mu = 1
@@ -229,7 +225,7 @@ def main(network_params: dict={}):
 
   # Set an initial state for the generator circuit
   init_dist = UniformDistribution(sum(num_qubits))
-  var_form = TwoLocal(int(np.sum(num_qubits)), 'ry', 'cz', reps=repetitions, entanglement=entangler_map) #
+  var_form = TwoLocal(int(np.sum(num_qubits)), 'ry', 'cz', reps=K, entanglement=entangler_map) #
 
   # Set generator circuit by adding the initial distribution infront of the ansatz
   g_circuit = var_form.compose(init_dist, front=True)
@@ -253,20 +249,16 @@ def main(network_params: dict={}):
   qgan.epochs = np.arange(num_epochs)
   qgan.network_params = network_params
   qgan.num_samples = N
-  params_g = result['params_g']
-  # for i,key in enumerate(result.keys()):
-  #   if key=='params_d':
-  #     continue
-  #   print(key,':' ,result[key])
-  
+  #params_g = result['params_g']
   
   #plots
   if to_plot:
     plot_losses(qgan)
     plot_re(qgan) # The losses are not good measures for evaluating GAN. RE is exactly what we re looking to minimize !
     plot_pdf_cdf(qgan, real_data, bounds)
-    
-  return qgan.rel_entr, params_g
+  
+  new_directory_name = get_common_str(qgan)
+  return qgan.rel_entr, new_directory_name
 
 if __name__ =="__main__":
   main()
