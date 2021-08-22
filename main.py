@@ -19,7 +19,7 @@ from qiskit.aqua.components.neural_networks import NumPyDiscriminator
 #local functions
 def get_common_str(qgan):
   params = qgan.network_params
-  test_str = 'P={},K={},3rd_layer={},dropouts={},n_hidden0={},n_hidden1={},N_epochs={}'.format(params['distribution'],params['K'], params['third_layer'], params['dropouts'], params['n_hidden0'], params['n_hidden1'], qgan._num_epochs)
+  test_str = 'P={},K={},3rd_layer={},enatngler={},n_hidden0={},n_hidden1={},N_epochs={}'.format(params['distribution'],params['K'], params['third_layer'], params['entangler_map'], params['n_hidden0'], params['n_hidden1'], qgan._num_epochs)
   new_directory_name = 'Figures/'+ test_str
   if not os.path.exists(new_directory_name):
       os.mkdir(new_directory_name)
@@ -161,9 +161,11 @@ def initialize_default_params(network_params):
   if 'third_layer' not in network_params.keys():
     network_params['third_layer']= False
   if 'K' not in network_params.keys():
-    network_params['K']= 1
+    network_params['K']= 1 
   if 'distribution' not in network_params.keys():
-    network_params['distribution']= 'triangular' # 'triangular', 'log-normal' 
+    network_params['distribution']= 'log-normal' # 'triangular', 'log-normal' ,'bimodal'
+  if 'entangler_map' not in network_params.keys():
+    network_params['entangler_map']= 'full' # 'full', 'circular' 
   
 
   return network_params
@@ -181,11 +183,10 @@ def main(network_params: dict={}):
   if num_qubits[0]==2:
     # training parameters
     N=1000
-    num_epochs = 10 
+    num_epochs = 700
     batch_size = 500 #500
 
     init_params = [3., 1., 0.6, 1.6] # the parameters are the initial rotation angles around the Y axis.
-    entangler_map = [[0, 1]]
     
   elif num_qubits[0]==3:
     # training parameters
@@ -199,13 +200,13 @@ def main(network_params: dict={}):
       # because the QuantumGenerator initializaton takes the parameters close to zero, they might get stuck on a local minimum
       init_params = 2*np.pi*np.random.rand((K+1)*num_qubits[0]) *2e-2
       init_params = init_params.flatten()
-    entangler_map= 'full'
+    
 
   # log-normal distrbuition parameters
   mu = 1
   sigma = 1
 
-    # quantum parameters
+  # quantum parameters
   max_state = 2**num_qubits[0] -1 
   bounds = np.array([0, max_state]) 
   num_registers = 1
@@ -215,8 +216,15 @@ def main(network_params: dict={}):
     real_data = np.random.lognormal(mean=mu, sigma=sigma, size=N)
   elif network_params['distribution'] =='triangular':
     real_data = np.random.triangular(left=0, mode= (max_state+1)/2, right=max_state, size=N)
+  elif network_params['distribution'] =='bimodal':
+    p = 0.4
+    gaussian1 = np.random.normal(loc=1, scale=1, size=N)
+    gaussian2 = np.random.normal(loc=5, scale=0.8, size=N)
+    chooser = np.random.random(size=N)
+    chooser1 = chooser < p
+    chooser2 = 1-chooser1
 
-
+    real_data = chooser1 * gaussian1 + chooser2 * gaussian2 
 
 
   # understanding the training data
@@ -234,6 +242,7 @@ def main(network_params: dict={}):
 
   # Set an initial state for the generator circuit
   init_dist = UniformDistribution(sum(num_qubits))
+  entangler_map = network_params['entangler_map']
   var_form = TwoLocal(int(np.sum(num_qubits)), 'ry', 'cz', reps=K, entanglement=entangler_map) #
 
   # Set generator circuit by adding the initial distribution infront of the ansatz

@@ -30,24 +30,26 @@ def run_one_config_of_main(network_params):
 k_vec = [1,2]
 bool_vec = [False, True]
 network_params= {}
-distribution_str = ['log-normal', 'triangular']
+distribution_str = ['log-normal', 'triangular','bimodal']
 
-for _,K in enumerate(k_vec):
-   for _,dropouts in enumerate(bool_vec):
+# network_params['n_hidden0'] = int(50)
+# network_params['n_hidden1'] = int(20)
+network_params['entangler_map']= 'circular'
+
+
+for _,distribution in enumerate(distribution_str):
+   for _,K in enumerate(k_vec):
       for _,third_layer in enumerate(bool_vec):
-         for _,distribution in enumerate(distribution_str):
+         
+         network_params['K'] = K
+         network_params['third_layer'] = third_layer
+         network_params['distribution'] = distribution
 
-            network_params['K'] = K
-            network_params['third_layer'] = third_layer
-            network_params['dropouts'] = dropouts
-            network_params['distribution'] = distribution
-
-            run_one_config_of_main(network_params)
+         run_one_config_of_main(network_params)
 
 
 ''' 
 TODO:
-
 - save the configutarion of the best epoch ! and to plot it together with the pdf !!!!
 '''
 
