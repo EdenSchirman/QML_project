@@ -2,6 +2,8 @@
 #
 # (C) Copyright IBM 2019, 2021.
 #
+# (C) Changed by Eden Schirman in August 2021. (schirman.eden@gmail.com)
+#
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
 # of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
@@ -28,7 +30,7 @@ from qiskit.aqua import QuantumInstance, AquaError, aqua_globals
 from qiskit.aqua.algorithms import QuantumAlgorithm
 from qiskit.aqua.components.neural_networks.discriminative_network import DiscriminativeNetwork
 from qiskit.aqua.components.neural_networks.generative_network import GenerativeNetwork
-from qiskit.aqua.components.neural_networks.quantum_generator import QuantumGenerator
+from quantum_generator import QuantumGenerator
 from qiskit.aqua.components.neural_networks.numpy_discriminator import NumPyDiscriminator
 from qiskit.aqua.components.optimizers import Optimizer
 from qiskit.aqua.components.uncertainty_models import UnivariateVariationalDistribution
@@ -315,6 +317,8 @@ class QGAN(QuantumAlgorithm):
                 index += self._batch_size
                 generated_batch, generated_prob = self._generator.get_output(self._quantum_instance,
                                                                              shots=self._batch_size)
+                if index ==self._batch_size and e == 0:
+                    self._generator_init_prob = generated_prob
 
                 # 1. Train Discriminator
                 ret_d = self._discriminator.train([real_batch, generated_batch],
@@ -329,11 +333,19 @@ class QGAN(QuantumAlgorithm):
 
                 if self.debug:
                     curr_g_params = ret_g['params']
-                    print("current G params {}".format(curr_g_params))
+                    with np.printoptions(precision=4):
+                        print("current G params {}".format(np.array(curr_g_params)))
+                        print("generated probability {}".format(np.array(generated_prob)))
                     curr_batch = index/self._batch_size
                     N_batches = np.floor(np.max(self._data.shape)/self._batch_size)
                     N_epochs = self._num_epochs
                     print("Finished batch {}/{} in epoch {}/{}".format(int(curr_batch), int(N_batches), e, N_epochs))
+
+            # change to evaluation mode
+            ret_d = self._discriminator.evaluate([real_batch, generated_batch],
+                                                  [np.ones(len(real_batch)) / len(real_batch),
+                                                   generated_prob])
+            d_loss_min = ret_d['loss']
 
             self._d_loss.append(np.around(float(d_loss_min), 4))
             self._g_loss.append(np.around(g_loss_min, 4))
