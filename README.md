@@ -1,5 +1,5 @@
 # QML_project
-This work has been done as part of a course in deep learning in Tel Aviv University. In the project, I restored and improved previous work done by IBM in quantum machine learning. Specifically, I followed Zoufal et al. [paper](https://arxiv.org/abs/1904.00043) and started with their [tutorial](https://github.com/Qiskit/qiskit-tutorials/blob/35ff38c7ffe004bf4f5f1f2e964feb4c88d32b58/tutorials/machine_learning/04_qgans_for_loading_random_distributions.ipynb).
+This work has been done as part of a course in deep learning in Tel Aviv University. In the project, I restored and improved previous work done by IBM in quantum machine learning. Specifically, I followed Zoufal et al. [paper](https://arxiv.org/abs/1904.00043) and started with their [tutorial](https://github.com/Qiskit/qiskit-tutorials/blob/35ff38c7ffe004bf4f5f1f2e964feb4c88d32b58/tutorials/machine_learning/04_qgans_for_loading_random_distributions.ipynb). All my work is summarized in the [summary report](SummaryReport.pdf) in the repo.
 
 The project contain several files:
 1. main.py - the main script.
